@@ -270,6 +270,25 @@ body {
 .chart-wrap.xtall { height: 380px; }
 .chart-wrap.doughnut-size { height: 260px; }
 
+/* ── EVOLUTION BUTTONS ── */
+.evo-btn {
+  padding: 5px 14px;
+  border: 1px solid var(--gray-border);
+  border-radius: 20px;
+  background: var(--white);
+  color: var(--gray-dark);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.evo-btn:hover { border-color: var(--coca-blue); color: var(--coca-blue); }
+.evo-btn.active {
+  background: var(--coca-dark);
+  color: var(--white);
+  border-color: var(--coca-dark);
+}
+
 /* ── DATA TABLE ── */
 .data-table-wrap {
   background: var(--white);
@@ -428,6 +447,18 @@ table.data-table tbody tr:hover { background: #EBF3FB; }
         <h3>Value USD por Pais</h3>
         <div class="chart-subtitle">Total Market &bull; Periodo seleccionado</div>
         <div class="chart-wrap"><canvas id="chart-val-overview"></canvas></div>
+      </div>
+      <div class="chart-box full-width">
+        <h3>Evolucion KPIs por Pais</h3>
+        <div class="chart-subtitle">Total Market &bull; Tendencia MAT Dec-23 &rarr; Dec-24 &rarr; Dec-25</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button class="evo-btn active" data-kpi="Penetration" onclick="switchEvoKpi(this)">Penetration</button>
+          <button class="evo-btn" data-kpi="Frequency" onclick="switchEvoKpi(this)">Frequency</button>
+          <button class="evo-btn" data-kpi="Value USD" onclick="switchEvoKpi(this)">Value USD</button>
+          <button class="evo-btn" data-kpi="Average Ticket USD" onclick="switchEvoKpi(this)">Avg Ticket</button>
+          <button class="evo-btn" data-kpi="Incidence" onclick="switchEvoKpi(this)">Incidence</button>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chart-evo-overview"></canvas></div>
       </div>
     </div>
   </div>
@@ -1043,6 +1074,42 @@ function renderOverview(f) {
     data: valData,
     backgroundColor: paises.map((_, i) => COLORS.palette[i % COLORS.palette.length]),
   }], { format: 'usd' });
+
+  // Evolution line chart (default: Penetration)
+  renderEvoOverview(f, 'Penetration');
+}
+
+// ── Evolution chart helper ──
+let _lastEvoFilters = null;
+
+function switchEvoKpi(btn) {
+  document.querySelectorAll('.evo-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const kpi = btn.dataset.kpi;
+  const f = _lastEvoFilters || getFilters();
+  renderEvoOverview(f, kpi);
+}
+
+function renderEvoOverview(f, kpiName) {
+  _lastEvoFilters = f;
+  const allPaises = uniqueVals(DATA_KPIS.filter(r => r.Pais !== 'Center Zone'), 'Pais');
+  const paises = f.pais === 'ALL' ? allPaises : [f.pais];
+  const periodos = ['MAT Dec-23', 'MAT Dec-24', 'MAT Dec-25'];
+
+  const isUsd = kpiName === 'Value USD' || kpiName === 'Average Ticket USD';
+  const isPct = kpiName === 'Penetration' || kpiName === 'Incidence';
+  const fmt = isUsd ? 'usd' : isPct ? 'pct' : null;
+
+  const datasets = paises.map((p, i) => ({
+    label: p,
+    data: periodos.map(per => {
+      const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === kpiName && d.Canal === 'Total Market' && d.Periodo === per);
+      return r?.Valor ?? null;
+    }),
+    borderColor: COLORS.palette[i % COLORS.palette.length],
+  }));
+
+  makeLine('chart-evo-overview', periodos, datasets, { format: fmt, fill: true, beginAtZero: false });
 }
 
 // ═══════════════════════════════════════
