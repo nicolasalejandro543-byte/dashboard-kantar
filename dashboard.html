@@ -467,13 +467,13 @@ table.data-table tbody tr:hover { background: #EBF3FB; }
   <div class="tab-page" id="page-penetration">
     <div class="charts-grid">
       <div class="chart-box">
-        <h3>Penetration por Canal</h3>
-        <div class="chart-subtitle">Pais seleccionado &bull; Horizontal</div>
+        <h3>Penetration por Canal &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">Pais seleccionado &bull; % cambio vs periodo anterior</div>
         <div class="chart-wrap tall"><canvas id="chart-pen-channel"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Frequency por Canal</h3>
-        <div class="chart-subtitle">Pais seleccionado</div>
+        <h3>Frequency por Canal &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">Pais seleccionado &bull; % cambio vs periodo anterior</div>
         <div class="chart-wrap tall"><canvas id="chart-freq-channel"></canvas></div>
       </div>
       <div class="chart-box full-width">
@@ -488,18 +488,18 @@ table.data-table tbody tr:hover { background: #EBF3FB; }
   <div class="tab-page" id="page-value">
     <div class="charts-grid">
       <div class="chart-box full-width">
-        <h3>Value USD por Canal</h3>
-        <div class="chart-subtitle">Comparativo por canal</div>
+        <h3>Value USD por Canal &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">% cambio vs periodo anterior</div>
         <div class="chart-wrap tall"><canvas id="chart-value-channel"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Average Ticket USD por Pais</h3>
-        <div class="chart-subtitle">Total Market</div>
+        <h3>Avg Ticket USD por Pais &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">Total Market &bull; % cambio vs periodo anterior</div>
         <div class="chart-wrap"><canvas id="chart-ticket-country"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Average Ticket USD por Canal</h3>
-        <div class="chart-subtitle">Pais seleccionado</div>
+        <h3>Avg Ticket USD por Canal &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">Pais seleccionado &bull; % cambio vs periodo anterior</div>
         <div class="chart-wrap"><canvas id="chart-ticket-channel"></canvas></div>
       </div>
     </div>
@@ -530,8 +530,8 @@ table.data-table tbody tr:hover { background: #EBF3FB; }
   <div class="tab-page" id="page-channels">
     <div class="charts-grid">
       <div class="chart-box full-width">
-        <h3>Transaction Share % por Canal - FMCG</h3>
-        <div class="chart-subtitle">MAT Q4.25 vs Q4.24</div>
+        <h3>Transaction Share por Canal &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">FMCG &bull; % cambio Q4.25 vs Q4.24</div>
         <div class="chart-wrap tall"><canvas id="chart-ch-share"></canvas></div>
       </div>
       <div class="chart-box full-width">
@@ -1164,17 +1164,30 @@ function renderEvoOverview(f, kpiName) {
 // ═══════════════════════════════════════
 function renderPenetration(f) {
   const pais = f.pais === 'ALL' ? 'Center Zone' : f.pais;
+  const prevPeriodo = f.periodo === 'MAT Dec-25' ? 'MAT Dec-24' : 'MAT Dec-23';
 
-  // Penetration by channel - horizontal bar
+  // Penetration by channel - variation vs PY
   const penRows = DATA_KPIS.filter(r => r.Pais === pais && r.Categoria === f.cat && r.KPI === 'Penetration' && r.Periodo === f.periodo && r.Canal !== 'Total Market');
-  makeHBar('chart-pen-channel', penRows.map(r => r.Canal), penRows.map(r => r.Valor ?? 0), {
-    format: 'pct', label: 'Penetration %'
+  const penChanges = penRows.map(r => {
+    const prev = DATA_KPIS.find(d => d.Pais === pais && d.Categoria === f.cat && d.KPI === 'Penetration' && d.Periodo === prevPeriodo && d.Canal === r.Canal);
+    const v = r.Valor, pv = prev?.Valor;
+    return (v != null && pv != null && pv !== 0) ? ((v - pv) / Math.abs(pv)) * 100 : 0;
+  });
+  makeHBar('chart-pen-channel', penRows.map(r => r.Canal), penChanges, {
+    format: 'pct', label: 'Penetration', isVariation: true,
+    actualValues: penRows.map(r => r.Valor ?? 0), actualFormat: 'pct'
   });
 
-  // Frequency by channel - horizontal bar
+  // Frequency by channel - variation vs PY
   const freqRows = DATA_KPIS.filter(r => r.Pais === pais && r.Categoria === f.cat && r.KPI === 'Frequency' && r.Periodo === f.periodo && r.Canal !== 'Total Market');
-  makeHBar('chart-freq-channel', freqRows.map(r => r.Canal), freqRows.map(r => r.Valor ?? 0), {
-    label: 'Frequency'
+  const freqChanges = freqRows.map(r => {
+    const prev = DATA_KPIS.find(d => d.Pais === pais && d.Categoria === f.cat && d.KPI === 'Frequency' && d.Periodo === prevPeriodo && d.Canal === r.Canal);
+    const v = r.Valor, pv = prev?.Valor;
+    return (v != null && pv != null && pv !== 0) ? ((v - pv) / Math.abs(pv)) * 100 : 0;
+  });
+  makeHBar('chart-freq-channel', freqRows.map(r => r.Canal), freqChanges, {
+    format: 'pct', label: 'Frequency', isVariation: true,
+    actualValues: freqRows.map(r => r.Valor ?? 0), actualFormat: 'num'
   });
 
   // Evolution - LINE CHART
@@ -1198,29 +1211,39 @@ function renderPenetration(f) {
 // ═══════════════════════════════════════
 function renderValue(f) {
   const pais = f.pais === 'ALL' ? 'Center Zone' : f.pais;
+  const prevPeriodo = f.periodo === 'MAT Dec-25' ? 'MAT Dec-24' : 'MAT Dec-23';
 
-  // Value by channel - horizontal bar
+  function calcChange(kpi, canal, p) {
+    const curr = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === kpi && d.Periodo === f.periodo && d.Canal === canal);
+    const prev = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === kpi && d.Periodo === prevPeriodo && d.Canal === canal);
+    const v = curr?.Valor, pv = prev?.Valor;
+    return (v != null && pv != null && pv !== 0) ? ((v - pv) / Math.abs(pv)) * 100 : 0;
+  }
+
+  // Value by channel - variation vs PY
   const valRows = DATA_KPIS.filter(r => r.Pais === pais && r.Categoria === f.cat && r.KPI === 'Value USD' && r.Periodo === f.periodo && r.Canal !== 'Total Market');
-  makeHBar('chart-value-channel', valRows.map(r => r.Canal), valRows.map(r => r.Valor ?? 0), {
-    format: 'usd', label: 'Value USD'
+  makeHBar('chart-value-channel', valRows.map(r => r.Canal), valRows.map(r => calcChange('Value USD', r.Canal, pais)), {
+    format: 'pct', label: 'Value USD', isVariation: true,
+    actualValues: valRows.map(r => r.Valor ?? 0), actualFormat: 'usd'
   });
 
-  // Ticket by country - vertical bar
+  // Ticket by country - variation vs PY
   const allPaises = uniqueVals(DATA_KPIS.filter(r => r.Pais !== 'Center Zone'), 'Pais');
-  const ticketData = allPaises.map(p => {
+  const ticketChanges = allPaises.map(p => calcChange('Average Ticket USD', 'Total Market', p));
+  const ticketActuals = allPaises.map(p => {
     const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Average Ticket USD' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
     return r?.Valor ?? 0;
   });
-  makeVBar('chart-ticket-country', allPaises, [{
-    label: 'Avg Ticket USD',
-    data: ticketData,
-    backgroundColor: allPaises.map((_, i) => COLORS.palette[i % COLORS.palette.length]),
-  }], { format: 'usd' });
+  makeHBar('chart-ticket-country', allPaises, ticketChanges, {
+    format: 'pct', label: 'Avg Ticket USD', isVariation: true,
+    actualValues: ticketActuals, actualFormat: 'usd'
+  });
 
-  // Ticket by channel - horizontal bar
+  // Ticket by channel - variation vs PY
   const ticketRows = DATA_KPIS.filter(r => r.Pais === pais && r.Categoria === f.cat && r.KPI === 'Average Ticket USD' && r.Periodo === f.periodo && r.Canal !== 'Total Market');
-  makeHBar('chart-ticket-channel', ticketRows.map(r => r.Canal), ticketRows.map(r => r.Valor ?? 0), {
-    format: 'usd', label: 'Avg Ticket USD'
+  makeHBar('chart-ticket-channel', ticketRows.map(r => r.Canal), ticketRows.map(r => calcChange('Average Ticket USD', r.Canal, pais)), {
+    format: 'pct', label: 'Avg Ticket USD', isVariation: true,
+    actualValues: ticketRows.map(r => r.Valor ?? 0), actualFormat: 'usd'
   });
 }
 
@@ -1281,7 +1304,7 @@ function renderChannels(f) {
   const pais = f.pais === 'ALL' ? 'Center Zone' : f.pais;
   const mainChannels = ['Modern Trade (Including Wholesalers)', ' Traditional Trade  ', 'Specialized Stores  ', 'Door To Door  ', 'E-commerce  '];
 
-  // Share comparison Q25 vs Q24
+  // Share variation vs PY by channel
   const q25 = mainChannels.map(ch => {
     const r = DATA_CH.find(d => d.Pais === pais && d.Categoria === 'FMCG' && d.Canal === ch && d.Periodo === 'MAT Q4.25');
     return r?.Valor ?? 0;
@@ -1291,11 +1314,15 @@ function renderChannels(f) {
     return r?.Valor ?? 0;
   });
   const chLabels = mainChannels.map(c => c.trim());
+  const chChanges = q25.map((v, i) => {
+    const pv = q24[i];
+    return (v != null && pv != null && pv !== 0) ? ((v - pv) / Math.abs(pv)) * 100 : 0;
+  });
 
-  makeVBar('chart-ch-share', chLabels, [
-    { label: 'MAT Q4.25', data: q25, backgroundColor: COLORS.red },
-    { label: 'MAT Q4.24', data: q24, backgroundColor: COLORS.dark },
-  ], { format: 'pct' });
+  makeHBar('chart-ch-share', chLabels, chChanges, {
+    format: 'pct', label: 'Channel Share', isVariation: true,
+    actualValues: q25, actualFormat: 'pct'
+  });
 
   // Channel mix by country (stacked 100%)
   const allPaises = uniqueVals(DATA_CH.filter(r => r.Pais !== 'Center Zone' && r.Categoria === 'FMCG' && r.Periodo === 'MAT Q4.25'), 'Pais');
