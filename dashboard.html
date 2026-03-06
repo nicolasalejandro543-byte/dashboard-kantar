@@ -709,14 +709,38 @@ function makeHBar(id, labels, values, opts = {}) {
   const ctx = document.getElementById(id);
   if (!ctx) return;
 
-  const combined = labels.map((l, i) => ({ label: l, value: values[i] ?? 0 }));
+  const combined = labels.map((l, i) => ({ label: l, value: values[i] ?? 0, change: opts.changes ? opts.changes[i] : null }));
   if (opts.sort !== false) combined.sort((a, b) => b.value - a.value);
 
   const sortedLabels = combined.map(c => c.label);
   const sortedValues = combined.map(c => c.value);
+  const sortedChanges = combined.map(c => c.change);
   const colors = opts.color
     ? (typeof opts.color === 'string' ? opts.color : opts.color)
     : sortedLabels.map((_, i) => COLORS.palette[i % COLORS.palette.length]);
+
+  const variationPlugin = {
+    id: 'hbarVariation',
+    afterDatasetsDraw(chart) {
+      if (!sortedChanges.some(c => c != null)) return;
+      const { ctx: c2 } = chart;
+      const meta = chart.getDatasetMeta(0);
+      meta.data.forEach((bar, i) => {
+        const ch = sortedChanges[i];
+        if (ch == null) return;
+        const arrow = ch >= 0 ? '▲' : '▼';
+        const color = ch >= 0 ? '#70AD47' : '#C00000';
+        const txt = `${arrow} ${Math.abs(ch).toFixed(1)}%`;
+        c2.save();
+        c2.font = 'bold 10px sans-serif';
+        c2.fillStyle = color;
+        c2.textAlign = 'left';
+        c2.textBaseline = 'middle';
+        c2.fillText(txt, bar.x + 6, bar.y);
+        c2.restore();
+      });
+    }
+  };
 
   CHARTS[id] = new Chart(ctx, {
     type: 'bar',
@@ -736,6 +760,7 @@ function makeHBar(id, labels, values, opts = {}) {
       maintainAspectRatio: false,
       categoryPercentage: 0.75,
       barPercentage: 0.8,
+      layout: { padding: { right: sortedChanges.some(c => c != null) ? 70 : 0 } },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: c => {
@@ -756,7 +781,8 @@ function makeHBar(id, labels, values, opts = {}) {
           grid: { display: false }
         }
       }
-    }
+    },
+    plugins: [variationPlugin]
   });
 }
 
@@ -773,6 +799,30 @@ function makeVBar(id, labels, datasets, opts = {}) {
     ds.borderSkipped = false;
   });
 
+  const changes = opts.changes || [];
+  const vbarVariationPlugin = {
+    id: 'vbarVariation',
+    afterDatasetsDraw(chart) {
+      if (!changes.some(c => c != null)) return;
+      const { ctx: c2 } = chart;
+      const meta = chart.getDatasetMeta(0);
+      meta.data.forEach((bar, i) => {
+        const ch = changes[i];
+        if (ch == null) return;
+        const arrow = ch >= 0 ? '▲' : '▼';
+        const color = ch >= 0 ? '#70AD47' : '#C00000';
+        const txt = `${arrow} ${Math.abs(ch).toFixed(1)}%`;
+        c2.save();
+        c2.font = 'bold 10px sans-serif';
+        c2.fillStyle = color;
+        c2.textAlign = 'center';
+        c2.textBaseline = 'bottom';
+        c2.fillText(txt, bar.x, bar.y - 4);
+        c2.restore();
+      });
+    }
+  };
+
   CHARTS[id] = new Chart(ctx, {
     type: 'bar',
     data: { labels, datasets },
@@ -781,6 +831,7 @@ function makeVBar(id, labels, datasets, opts = {}) {
       maintainAspectRatio: false,
       categoryPercentage: 0.7,
       barPercentage: datasets.length > 1 ? 0.85 : 0.6,
+      layout: { padding: { top: changes.some(c => c != null) ? 20 : 0 } },
       plugins: {
         legend: { display: datasets.length > 1, position: 'top', labels: { font: { size: 11 }, padding: 14 } },
         tooltip: { callbacks: { label: c => {
@@ -801,7 +852,8 @@ function makeVBar(id, labels, datasets, opts = {}) {
           grid: { display: false }
         }
       }
-    }
+    },
+    plugins: [vbarVariationPlugin]
   });
 }
 
@@ -1043,37 +1095,49 @@ function renderOverview(f) {
   const allPaises = uniqueVals(DATA_KPIS.filter(r => r.Pais !== 'Center Zone'), 'Pais');
   const paises = f.pais === 'ALL' ? allPaises : [f.pais];
 
+  // Helper to get vs PY changes for a KPI
+  const prevPeriodo = f.periodo === 'MAT Dec-25' ? 'MAT Dec-24' : 'MAT Dec-23';
+  function getChanges(kpi) {
+    return paises.map(p => {
+      const curr = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === kpi && d.Canal === 'Total Market' && d.Periodo === f.periodo);
+      const prev = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === kpi && d.Canal === 'Total Market' && d.Periodo === prevPeriodo);
+      const v = curr?.Valor, pv = prev?.Valor;
+      return (v != null && pv != null && pv !== 0) ? ((v - pv) / Math.abs(pv)) * 100 : null;
+    });
+  }
+
   // Penetration by country - horizontal bar
   const penData = paises.map(p => {
     const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Penetration' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
     return r?.Valor ?? 0;
   });
-  makeHBar('chart-pen-overview', paises, penData, { format: 'pct', label: 'Penetration %' });
+  makeHBar('chart-pen-overview', paises, penData, { format: 'pct', label: 'Penetration %', changes: getChanges('Penetration') });
 
   // Frequency by country - horizontal bar
   const freqData = paises.map(p => {
     const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Frequency' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
     return r?.Valor ?? 0;
   });
-  makeHBar('chart-freq-overview', paises, freqData, { label: 'Frequency' });
+  makeHBar('chart-freq-overview', paises, freqData, { label: 'Frequency', changes: getChanges('Frequency') });
 
   // Incidence by country - horizontal bar
   const incData = paises.map(p => {
     const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Incidence' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
     return r?.Valor ?? 0;
   });
-  makeHBar('chart-inc-overview', paises, incData, { format: 'pct', label: 'Incidence %', color: COLORS.red });
+  makeHBar('chart-inc-overview', paises, incData, { format: 'pct', label: 'Incidence %', color: COLORS.red, changes: getChanges('Incidence') });
 
   // Value USD by country - vertical bar
   const valData = paises.map(p => {
     const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Value USD' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
     return r?.Valor ?? 0;
   });
+  const valChanges = getChanges('Value USD');
   makeVBar('chart-val-overview', paises, [{
     label: 'Value USD',
     data: valData,
     backgroundColor: paises.map((_, i) => COLORS.palette[i % COLORS.palette.length]),
-  }], { format: 'usd' });
+  }], { format: 'usd', changes: valChanges });
 
   // Evolution line chart (default: Penetration)
   renderEvoOverview(f, 'Penetration');
