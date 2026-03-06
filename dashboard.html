@@ -1133,11 +1133,14 @@ function renderOverview(f) {
     return r?.Valor ?? 0;
   });
   const valChanges = getChanges('Value USD');
-  makeVBar('chart-val-overview', paises, [{
+  // Sort Value USD descending
+  const valCombined = paises.map((p, i) => ({ label: p, value: valData[i], change: valChanges[i], color: COLORS.palette[i % COLORS.palette.length] }));
+  valCombined.sort((a, b) => b.value - a.value);
+  makeVBar('chart-val-overview', valCombined.map(c => c.label), [{
     label: 'Value USD',
-    data: valData,
-    backgroundColor: paises.map((_, i) => COLORS.palette[i % COLORS.palette.length]),
-  }], { format: 'usd', changes: valChanges });
+    data: valCombined.map(c => c.value),
+    backgroundColor: valCombined.map(c => c.color),
+  }], { format: 'usd', changes: valCombined.map(c => c.change) });
 
   // Evolution line chart (default: Penetration)
   renderEvoOverview(f, 'Penetration');
