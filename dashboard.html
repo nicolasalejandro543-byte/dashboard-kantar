@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kantar Center Zone Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --coca-red: #E31937;
+  --coca-dark: #1F4E79;
+  --coca-blue: #2E75B6;
+  --green-pos: #70AD47;
+  --red-neg: #C00000;
+  --gray-dark: #333333;
+  --gray-med: #888888;
+  --gray-light: #F7F8FA;
+  --gray-border: #E4E7EB;
+  --white: #FFFFFF;
+  --gold: #FFC000;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.07);
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--gray-light);
+  color: var(--gray-dark);
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.header {
+  background: linear-gradient(135deg, var(--coca-dark) 0%, #163a5c 60%, #0f2b44 100%);
+  color: var(--white);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 32px;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-title .logo {
+  width: 38px; height: 38px;
+  background: var(--coca-red);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(227,25,55,0.4);
+}
+
+.header-title h1 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.header-title .subtitle {
+  font-size: 11px;
+  opacity: 0.65;
+  font-weight: 400;
+}
+
+.header-badge {
+  background: var(--coca-red);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(227,25,55,0.3);
+}
+
+/* ── NAV TABS ── */
+.nav-tabs {
+  display: flex;
+  padding: 0 32px;
+  gap: 1px;
+  background: rgba(0,0,0,0.12);
+}
+
+.nav-tab {
+  padding: 10px 22px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.55);
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  user-select: none;
+  letter-spacing: 0.3px;
+}
+
+.nav-tab:hover { color: rgba(255,255,255,0.85); }
+.nav-tab.active {
+  color: var(--white);
+  border-bottom-color: var(--coca-red);
+  background: rgba(255,255,255,0.06);
+}
+
+/* ── FILTERS ── */
+.filters-bar {
+  background: var(--white);
+  padding: 10px 32px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  border-bottom: 1px solid var(--gray-border);
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.filter-group label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--gray-med);
+  letter-spacing: 0.8px;
+}
+
+.filter-group select {
+  padding: 5px 26px 5px 10px;
+  border: 1px solid var(--gray-border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--gray-dark);
+  background: var(--white);
+  cursor: pointer;
+  min-width: 130px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: border-color 0.2s;
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: var(--coca-blue);
+  box-shadow: 0 0 0 2px rgba(46,117,182,0.12);
+}
+
+/* ── MAIN CONTENT ── */
+.main { padding: 20px 32px; }
+
+.tab-page { display: none; }
+.tab-page.active { display: block; }
+
+/* ── KPI CARDS ROW ── */
+.kpi-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.kpi-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  border-left: 4px solid var(--coca-dark);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.kpi-card.red-accent { border-left-color: var(--coca-red); }
+.kpi-card.blue-accent { border-left-color: var(--coca-blue); }
+.kpi-card.green-accent { border-left-color: var(--green-pos); }
+.kpi-card.gold-accent { border-left-color: var(--gold); }
+
+.kpi-card .kpi-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--gray-med);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.kpi-card .kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--coca-dark);
+  line-height: 1.1;
+}
+
+.kpi-card .kpi-change {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpi-card .kpi-change.positive { color: var(--green-pos); }
+.kpi-card .kpi-change.negative { color: var(--red-neg); }
+
+/* ── CHART CONTAINERS ── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.chart-box {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s;
+}
+
+.chart-box:hover { box-shadow: var(--shadow-md); }
+
+.chart-box.full-width { grid-column: 1 / -1; }
+.chart-box.span-1 { grid-column: span 1; }
+
+.chart-box h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--coca-dark);
+  margin-bottom: 2px;
+}
+
+.chart-box .chart-subtitle {
+  font-size: 10px;
+  color: var(--gray-med);
+  margin-bottom: 14px;
+}
+
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 280px;
+}
+
+.chart-wrap.tall { height: 340px; }
+.chart-wrap.short { height: 220px; }
+.chart-wrap.xtall { height: 380px; }
+.chart-wrap.doughnut-size { height: 260px; }
+
+/* ── DATA TABLE ── */
+.data-table-wrap {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.data-table-wrap h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--coca-dark);
+  margin-bottom: 14px;
+}
+
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+table.data-table thead th {
+  background: var(--coca-dark);
+  color: var(--white);
+  padding: 9px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+table.data-table tbody td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--gray-border);
+  white-space: nowrap;
+}
+
+table.data-table tbody tr:nth-child(even) { background: #F9FAFB; }
+table.data-table tbody tr:hover { background: #EBF3FB; }
+
+.val-pos { color: var(--green-pos); font-weight: 600; }
+.val-neg { color: var(--red-neg); font-weight: 600; }
+
+/* ── LOADING ── */
+.loading {
+  text-align: center;
+  padding: 60px;
+  color: var(--gray-med);
+}
+
+.loading .spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--gray-border);
+  border-top-color: var(--coca-red);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 14px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .charts-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .header-top { padding: 12px 16px; }
+  .nav-tabs { padding: 0 16px; overflow-x: auto; }
+  .nav-tab { padding: 10px 14px; white-space: nowrap; }
+  .filters-bar { padding: 10px 16px; }
+  .main { padding: 14px 16px; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .kpi-cards { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div class="header-title">
+      <div class="logo">K</div>
+      <div>
+        <h1>KANTAR CENTER ZONE</h1>
+        <div class="subtitle">Incidence Q4 &bull; Additional KPI's Dashboard</div>
+      </div>
+    </div>
+    <div class="header-badge">MAT Q4 2025</div>
+  </div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" data-tab="overview">Overview</div>
+    <div class="nav-tab" data-tab="penetration">Penetration & Frequency</div>
+    <div class="nav-tab" data-tab="value">Value & Ticket</div>
+    <div class="nav-tab" data-tab="incidence">Incidence</div>
+    <div class="nav-tab" data-tab="channels">Channels</div>
+    <div class="nav-tab" data-tab="table">Data Table</div>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="filters-bar">
+  <div class="filter-group">
+    <label>Pais</label>
+    <select id="f-pais"><option value="ALL">Todos</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Categoria</label>
+    <select id="f-cat">
+      <option value="NARTD">NARTD</option>
+      <option value="TCCC">TCCC</option>
+      <option value="FMCG">FMCG</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Canal</label>
+    <select id="f-canal"><option value="Total Market">Total Market</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Periodo</label>
+    <select id="f-periodo">
+      <option value="MAT Dec-25">MAT Dec-25</option>
+      <option value="MAT Dec-24">MAT Dec-24</option>
+      <option value="MAT Dec-23">MAT Dec-23</option>
+    </select>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- TAB: OVERVIEW -->
+  <div class="tab-page active" id="page-overview">
+    <div class="kpi-cards" id="kpi-cards-row"></div>
+    <div class="charts-grid">
+      <div class="chart-box">
+        <h3>Penetration por Pais</h3>
+        <div class="chart-subtitle">Total Market &bull; Periodo seleccionado</div>
+        <div class="chart-wrap"><canvas id="chart-pen-overview"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>Frequency por Pais</h3>
+        <div class="chart-subtitle">Total Market &bull; Periodo seleccionado</div>
+        <div class="chart-wrap"><canvas id="chart-freq-overview"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>Incidence vs FMCG por Pais</h3>
+        <div class="chart-subtitle">Total Market</div>
+        <div class="chart-wrap"><canvas id="chart-inc-overview"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>Value USD por Pais</h3>
+        <div class="chart-subtitle">Total Market &bull; Periodo seleccionado</div>
+        <div class="chart-wrap"><canvas id="chart-val-overview"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: PENETRATION & FREQUENCY -->
+  <div class="tab-page" id="page-penetration">
+    <div class="charts-grid">
+      <div class="chart-box">
+        <h3>Penetration por Canal</h3>
+        <div class="chart-subtitle">Pais seleccionado &bull; Horizontal</div>
+        <div class="chart-wrap tall"><canvas id="chart-pen-channel"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>Frequency por Canal</h3>
+        <div class="chart-subtitle">Pais seleccionado</div>
+        <div class="chart-wrap tall"><canvas id="chart-freq-channel"></canvas></div>
+      </div>
+      <div class="chart-box full-width">
+        <h3>Evolucion Penetration - Total Market</h3>
+        <div class="chart-subtitle">MAT Dec-23 &rarr; Dec-24 &rarr; Dec-25 por pais</div>
+        <div class="chart-wrap tall"><canvas id="chart-pen-evolution"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: VALUE & TICKET -->
+  <div class="tab-page" id="page-value">
+    <div class="charts-grid">
+      <div class="chart-box full-width">
+        <h3>Value USD por Canal</h3>
+        <div class="chart-subtitle">Comparativo por canal</div>
+        <div class="chart-wrap tall"><canvas id="chart-value-channel"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>Average Ticket USD por Pais</h3>
+        <div class="chart-subtitle">Total Market</div>
+        <div class="chart-wrap"><canvas id="chart-ticket-country"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>Average Ticket USD por Canal</h3>
+        <div class="chart-subtitle">Pais seleccionado</div>
+        <div class="chart-wrap"><canvas id="chart-ticket-channel"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: INCIDENCE -->
+  <div class="tab-page" id="page-incidence">
+    <div class="charts-grid">
+      <div class="chart-box full-width">
+        <h3>Incidence vs FMCG - Evolucion</h3>
+        <div class="chart-subtitle">Total Channels por pais &bull; Linea de tendencia</div>
+        <div class="chart-wrap tall"><canvas id="chart-inc-evolution"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>Incidence por Tipo de Canal</h3>
+        <div class="chart-subtitle">NARTD &bull; Ultimo periodo</div>
+        <div class="chart-wrap"><canvas id="chart-inc-by-channel"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>Incidence por Subcategoria</h3>
+        <div class="chart-subtitle">Colas, Sabores, RTDJ, Water</div>
+        <div class="chart-wrap doughnut-size"><canvas id="chart-inc-subcat"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: CHANNELS -->
+  <div class="tab-page" id="page-channels">
+    <div class="charts-grid">
+      <div class="chart-box full-width">
+        <h3>Transaction Share % por Canal - FMCG</h3>
+        <div class="chart-subtitle">MAT Q4.25 vs Q4.24</div>
+        <div class="chart-wrap tall"><canvas id="chart-ch-share"></canvas></div>
+      </div>
+      <div class="chart-box full-width">
+        <h3>Channel Mix por Pais - FMCG</h3>
+        <div class="chart-subtitle">MAT Q4.25 &bull; Composicion porcentual</div>
+        <div class="chart-wrap tall"><canvas id="chart-ch-mix"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: DATA TABLE -->
+  <div class="tab-page" id="page-table">
+    <div class="data-table-wrap">
+      <h3>Base de Datos Completa - KPIs</h3>
+      <div style="margin-bottom:12px;">
+        <input type="text" id="table-search" placeholder="Buscar..." style="padding:7px 14px;border:1px solid var(--gray-border);border-radius:6px;font-size:12px;width:240px;">
+      </div>
+      <div style="max-height:600px;overflow:auto;">
+        <table class="data-table" id="main-table">
+          <thead><tr></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── GLOBALS ──
+let DATA_KPIS = [];
+let DATA_INC = [];
+let DATA_CH = [];
+let DATA_INC_SUB = [];
+let DATA_CH_DET = [];
+const CHARTS = {};
+
+const COLORS = {
+  red: '#E31937', dark: '#1F4E79', blue: '#2E75B6',
+  green: '#70AD47', redNeg: '#C00000', gold: '#FFC000',
+  gray: '#888888',
+  palette: ['#E31937','#1F4E79','#2E75B6','#70AD47','#FFC000','#C00000','#9B59B6','#E67E22','#1ABC9C','#34495E','#3498DB','#F39C12'],
+  paletteAlpha: [
+    'rgba(227,25,55,0.12)','rgba(31,78,121,0.12)','rgba(46,117,182,0.12)',
+    'rgba(112,173,71,0.12)','rgba(255,192,0,0.12)','rgba(192,0,0,0.12)',
+    'rgba(155,89,182,0.12)','rgba(230,126,34,0.12)','rgba(26,188,156,0.12)','rgba(52,73,94,0.12)'
+  ]
+};
+
+// Global Chart.js defaults
+Chart.defaults.font.family = "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#555';
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+Chart.defaults.plugins.legend.labels.padding = 14;
+Chart.defaults.elements.line.tension = 0.35;
+Chart.defaults.elements.point.radius = 4;
+Chart.defaults.elements.point.hoverRadius = 6;
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', async () => {
+  const [kpis, inc, ch, incSub, chDet, filters] = await Promise.all([
+    fetch('/api/kpis').then(r => r.json()),
+    fetch('/api/incidence').then(r => r.json()),
+    fetch('/api/channels').then(r => r.json()),
+    fetch('/api/incidence_sub').then(r => r.json()),
+    fetch('/api/channels_detail').then(r => r.json()),
+    fetch('/api/filters').then(r => r.json()),
+  ]);
+
+  DATA_KPIS = kpis;
+  DATA_INC = inc;
+  DATA_CH = ch;
+  DATA_INC_SUB = incSub;
+  DATA_CH_DET = chDet;
+
+  populateSelect('f-pais', ['ALL', ...filters.paises], 'ALL');
+  populateSelect('f-canal', filters.canales, 'Total Market');
+
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('page-' + tab.dataset.tab).classList.add('active');
+      renderAll();
+    });
+  });
+
+  ['f-pais','f-cat','f-canal','f-periodo'].forEach(id => {
+    document.getElementById(id).addEventListener('change', renderAll);
+  });
+
+  document.getElementById('table-search').addEventListener('input', renderTable);
+  renderAll();
+});
+
+function populateSelect(id, options, defaultVal) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '';
+  options.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o; opt.textContent = o === 'ALL' ? 'Todos' : o;
+    if (o === defaultVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function getFilters() {
+  return {
+    pais: document.getElementById('f-pais').value,
+    cat: document.getElementById('f-cat').value,
+    canal: document.getElementById('f-canal').value,
+    periodo: document.getElementById('f-periodo').value,
+  };
+}
+
+function filterKpi(data, f, overrides = {}) {
+  const pais = overrides.pais ?? f.pais;
+  const cat = overrides.cat ?? f.cat;
+  const canal = overrides.canal ?? f.canal;
+  const periodo = overrides.periodo ?? f.periodo;
+  const kpi = overrides.kpi ?? null;
+  return data.filter(r =>
+    (pais === 'ALL' || r.Pais === pais) &&
+    (!cat || r.Categoria === cat) &&
+    (!canal || r.Canal === canal) &&
+    (!periodo || r.Periodo === periodo) &&
+    (!kpi || r.KPI === kpi)
+  );
+}
+
+// ── RENDER ALL ──
+function renderAll() {
+  const activeTab = document.querySelector('.nav-tab.active').dataset.tab;
+  const f = getFilters();
+  if (activeTab === 'overview') renderOverview(f);
+  else if (activeTab === 'penetration') renderPenetration(f);
+  else if (activeTab === 'value') renderValue(f);
+  else if (activeTab === 'incidence') renderIncidence(f);
+  else if (activeTab === 'channels') renderChannels(f);
+  else if (activeTab === 'table') renderTable();
+}
+
+// ── CHART HELPERS ──
+function destroyChart(id) {
+  if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; }
+}
+
+function formatNum(n) {
+  if (n == null || isNaN(n)) return '-';
+  if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(1) + 'B';
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n.toFixed(1);
+}
+
+function formatCompact(n) {
+  if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(0) + 'B';
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(0) + 'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(0) + 'K';
+  return n.toFixed(0);
+}
+
+function uniqueVals(arr, key) {
+  return [...new Set(arr.map(r => r[key]).filter(Boolean))];
+}
+
+// ═══════════════════════════════════
+// ── HORIZONTAL BAR (corporate) ──
+// ═══════════════════════════════════
+function makeHBar(id, labels, values, opts = {}) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  const combined = labels.map((l, i) => ({ label: l, value: values[i] ?? 0 }));
+  if (opts.sort !== false) combined.sort((a, b) => b.value - a.value);
+
+  const sortedLabels = combined.map(c => c.label);
+  const sortedValues = combined.map(c => c.value);
+  const colors = opts.color
+    ? (typeof opts.color === 'string' ? opts.color : opts.color)
+    : sortedLabels.map((_, i) => COLORS.palette[i % COLORS.palette.length]);
+
+  CHARTS[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sortedLabels,
+      datasets: [{
+        label: opts.label || '',
+        data: sortedValues,
+        backgroundColor: colors,
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      categoryPercentage: 0.75,
+      barPercentage: 0.8,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => {
+          let v = c.parsed.x;
+          if (opts.format === 'pct') return v.toFixed(1) + '%';
+          if (opts.format === 'usd') return '$' + formatNum(v);
+          return formatNum(v);
+        }}}
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: { font: { size: 10 }, callback: v => opts.format === 'usd' ? '$' + formatCompact(v) : opts.format === 'pct' ? v + '%' : v },
+          grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false }
+        },
+        y: {
+          ticks: { font: { size: 11 } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════
+// ── VERTICAL BAR (grouped) ──
+// ═══════════════════════════════════
+function makeVBar(id, labels, datasets, opts = {}) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  datasets.forEach(ds => {
+    ds.borderRadius = 4;
+    ds.borderSkipped = false;
+  });
+
+  CHARTS[id] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      categoryPercentage: 0.7,
+      barPercentage: datasets.length > 1 ? 0.85 : 0.6,
+      plugins: {
+        legend: { display: datasets.length > 1, position: 'top', labels: { font: { size: 11 }, padding: 14 } },
+        tooltip: { callbacks: { label: c => {
+          let v = c.parsed.y;
+          if (opts.format === 'pct') return c.dataset.label + ': ' + v.toFixed(1) + '%';
+          if (opts.format === 'usd') return c.dataset.label + ': $' + formatNum(v);
+          return c.dataset.label + ': ' + formatNum(v);
+        }}}
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { font: { size: 10 }, callback: v => opts.format === 'usd' ? '$' + formatCompact(v) : opts.format === 'pct' ? v + '%' : v },
+          grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false }
+        },
+        x: {
+          ticks: { font: { size: 10 }, maxRotation: 35, autoSkip: false },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════
+// ── LINE CHART (evolution) ──
+// ═══════════════════════════════════
+function makeLine(id, labels, datasets, opts = {}) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  datasets.forEach((ds, i) => {
+    ds.borderWidth = 2.5;
+    ds.pointRadius = 5;
+    ds.pointHoverRadius = 7;
+    ds.pointBackgroundColor = ds.borderColor || COLORS.palette[i];
+    ds.pointBorderColor = '#fff';
+    ds.pointBorderWidth = 2;
+    ds.fill = opts.fill ? { target: 'origin', above: COLORS.paletteAlpha[i] || 'rgba(46,117,182,0.1)' } : false;
+    if (!ds.borderColor) ds.borderColor = COLORS.palette[i];
+    if (!ds.backgroundColor) ds.backgroundColor = COLORS.palette[i];
+  });
+
+  CHARTS[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 10 }, padding: 14 } },
+        tooltip: { callbacks: { label: c => {
+          let v = c.parsed.y;
+          if (opts.format === 'pct') return c.dataset.label + ': ' + (v != null ? v.toFixed(1) : '-') + '%';
+          if (opts.format === 'usd') return c.dataset.label + ': $' + formatNum(v);
+          return c.dataset.label + ': ' + (v != null ? formatNum(v) : '-');
+        }}}
+      },
+      scales: {
+        y: {
+          beginAtZero: opts.beginAtZero !== false,
+          ticks: { font: { size: 10 }, callback: v => opts.format === 'pct' ? v + '%' : opts.format === 'usd' ? '$' + formatCompact(v) : v },
+          grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false }
+        },
+        x: {
+          ticks: { font: { size: 11 } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════
+// ── DOUGHNUT CHART ──
+// ═══════════════════════════════════
+function makeDoughnut(id, labels, values, opts = {}) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  const colors = opts.colors || labels.map((_, i) => COLORS.palette[i % COLORS.palette.length]);
+
+  CHARTS[id] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#fff',
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '58%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            font: { size: 11 }, padding: 12,
+            generateLabels: (chart) => {
+              const data = chart.data;
+              const total = data.datasets[0].data.reduce((a, b) => a + (b || 0), 0);
+              return data.labels.map((l, i) => ({
+                text: l + ' (' + (total > 0 ? ((data.datasets[0].data[i] / total) * 100).toFixed(1) : 0) + '%)',
+                fillStyle: data.datasets[0].backgroundColor[i],
+                strokeStyle: '#fff',
+                lineWidth: 1,
+                index: i,
+                pointStyle: 'circle',
+              }));
+            }
+          }
+        },
+        tooltip: { callbacks: { label: c => {
+          const total = c.dataset.data.reduce((a, b) => a + (b || 0), 0);
+          const pct = total > 0 ? ((c.parsed / total) * 100).toFixed(1) : 0;
+          if (opts.format === 'pct') return c.label + ': ' + c.parsed.toFixed(1) + '% (' + pct + '% del total)';
+          return c.label + ': ' + formatNum(c.parsed) + ' (' + pct + '%)';
+        }}}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════
+// ── RADAR CHART ──
+// ═══════════════════════════════════
+function makeRadar(id, labels, datasets) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  datasets.forEach((ds, i) => {
+    ds.borderWidth = 2;
+    ds.pointRadius = 4;
+    ds.pointHoverRadius = 6;
+    ds.pointBackgroundColor = ds.borderColor || COLORS.palette[i];
+    ds.pointBorderColor = '#fff';
+    ds.pointBorderWidth = 1.5;
+    if (!ds.borderColor) ds.borderColor = COLORS.palette[i];
+    if (!ds.backgroundColor) ds.backgroundColor = COLORS.paletteAlpha[i] || 'rgba(46,117,182,0.1)';
+  });
+
+  CHARTS[id] = new Chart(ctx, {
+    type: 'radar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 10 }, padding: 14 } }
+      },
+      scales: {
+        r: {
+          beginAtZero: true,
+          ticks: { font: { size: 9 }, backdropColor: 'transparent' },
+          grid: { color: 'rgba(0,0,0,0.06)' },
+          pointLabels: { font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════
+// ── STACKED BAR (100%) ──
+// ═══════════════════════════════════
+function makeStacked(id, labels, datasets) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  datasets.forEach(ds => {
+    ds.borderRadius = 2;
+    ds.borderSkipped = false;
+  });
+
+  CHARTS[id] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      categoryPercentage: 0.65,
+      barPercentage: 0.9,
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 10 }, padding: 12 } },
+        tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y.toFixed(1) + '%' } }
+      },
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 10 }, maxRotation: 35, autoSkip: false }, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false } }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════
+// ── OVERVIEW TAB ──
+// ═══════════════════════════════════════
+function renderOverview(f) {
+  const cardsEl = document.getElementById('kpi-cards-row');
+  const kpiList = [
+    { kpi: 'Penetration', label: 'Penetration', accent: 'red-accent', suffix: '%' },
+    { kpi: 'Frequency', label: 'Frequency', accent: 'blue-accent', suffix: '' },
+    { kpi: 'Value USD', label: 'Value USD', accent: 'green-accent', suffix: '', isUsd: true },
+    { kpi: 'Average Ticket USD', label: 'Avg Ticket', accent: 'gold-accent', suffix: '', isUsd: true },
+  ];
+
+  const cardPais = f.pais === 'ALL' ? 'Center Zone' : f.pais;
+  let cardsHTML = '';
+
+  kpiList.forEach(k => {
+    const curr = DATA_KPIS.find(r => r.Pais === cardPais && r.Categoria === f.cat && r.KPI === k.kpi && r.Canal === 'Total Market' && r.Periodo === f.periodo);
+    const prevPeriodo = f.periodo === 'MAT Dec-25' ? 'MAT Dec-24' : 'MAT Dec-23';
+    const prev = DATA_KPIS.find(r => r.Pais === cardPais && r.Categoria === f.cat && r.KPI === k.kpi && r.Canal === 'Total Market' && r.Periodo === prevPeriodo);
+
+    const val = curr?.Valor;
+    const prevVal = prev?.Valor;
+    let change = null;
+    if (val != null && prevVal != null && prevVal !== 0) {
+      change = ((val - prevVal) / Math.abs(prevVal)) * 100;
+    }
+
+    let displayVal = val != null ? (k.isUsd ? '$' + formatNum(val) : val.toFixed(1) + k.suffix) : '-';
+    let changeHTML = '';
+    if (change != null) {
+      const cls = change >= 0 ? 'positive' : 'negative';
+      const arrow = change >= 0 ? '&#9650;' : '&#9660;';
+      changeHTML = `<div class="kpi-change ${cls}">${arrow} ${Math.abs(change).toFixed(1)}% vs PY</div>`;
+    }
+
+    cardsHTML += `
+      <div class="kpi-card ${k.accent}">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-value">${displayVal}</div>
+        ${changeHTML}
+      </div>`;
+  });
+
+  // Incidence card
+  const incCurr = DATA_KPIS.find(r => r.Pais === cardPais && r.Categoria === f.cat && r.KPI === 'Incidence' && r.Canal === 'Total Market' && r.Periodo === f.periodo);
+  if (incCurr?.Valor != null) {
+    cardsHTML += `
+      <div class="kpi-card red-accent">
+        <div class="kpi-label">Incidence</div>
+        <div class="kpi-value">${incCurr.Valor.toFixed(1)}%</div>
+      </div>`;
+  }
+  cardsEl.innerHTML = cardsHTML;
+
+  // Charts
+  const allPaises = uniqueVals(DATA_KPIS.filter(r => r.Pais !== 'Center Zone'), 'Pais');
+  const paises = f.pais === 'ALL' ? allPaises : [f.pais];
+
+  // Penetration by country - horizontal bar
+  const penData = paises.map(p => {
+    const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Penetration' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
+    return r?.Valor ?? 0;
+  });
+  makeHBar('chart-pen-overview', paises, penData, { format: 'pct', label: 'Penetration %' });
+
+  // Frequency by country - horizontal bar
+  const freqData = paises.map(p => {
+    const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Frequency' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
+    return r?.Valor ?? 0;
+  });
+  makeHBar('chart-freq-overview', paises, freqData, { label: 'Frequency' });
+
+  // Incidence by country - horizontal bar
+  const incData = paises.map(p => {
+    const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Incidence' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
+    return r?.Valor ?? 0;
+  });
+  makeHBar('chart-inc-overview', paises, incData, { format: 'pct', label: 'Incidence %', color: COLORS.red });
+
+  // Value USD by country - vertical bar
+  const valData = paises.map(p => {
+    const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Value USD' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
+    return r?.Valor ?? 0;
+  });
+  makeVBar('chart-val-overview', paises, [{
+    label: 'Value USD',
+    data: valData,
+    backgroundColor: paises.map((_, i) => COLORS.palette[i % COLORS.palette.length]),
+  }], { format: 'usd' });
+}
+
+// ═══════════════════════════════════════
+// ── PENETRATION TAB ──
+// ═══════════════════════════════════════
+function renderPenetration(f) {
+  const pais = f.pais === 'ALL' ? 'Center Zone' : f.pais;
+
+  // Penetration by channel - horizontal bar
+  const penRows = DATA_KPIS.filter(r => r.Pais === pais && r.Categoria === f.cat && r.KPI === 'Penetration' && r.Periodo === f.periodo && r.Canal !== 'Total Market');
+  makeHBar('chart-pen-channel', penRows.map(r => r.Canal), penRows.map(r => r.Valor ?? 0), {
+    format: 'pct', label: 'Penetration %'
+  });
+
+  // Frequency by channel - horizontal bar
+  const freqRows = DATA_KPIS.filter(r => r.Pais === pais && r.Categoria === f.cat && r.KPI === 'Frequency' && r.Periodo === f.periodo && r.Canal !== 'Total Market');
+  makeHBar('chart-freq-channel', freqRows.map(r => r.Canal), freqRows.map(r => r.Valor ?? 0), {
+    label: 'Frequency'
+  });
+
+  // Evolution - LINE CHART
+  const allPaises = f.pais === 'ALL' ? uniqueVals(DATA_KPIS.filter(r => r.Pais !== 'Center Zone'), 'Pais') : [f.pais];
+  const periodos = ['MAT Dec-23', 'MAT Dec-24', 'MAT Dec-25'];
+
+  const datasets = allPaises.map((p, i) => ({
+    label: p,
+    data: periodos.map(per => {
+      const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Penetration' && d.Canal === 'Total Market' && d.Periodo === per);
+      return r?.Valor ?? null;
+    }),
+    borderColor: COLORS.palette[i % COLORS.palette.length],
+  }));
+
+  makeLine('chart-pen-evolution', periodos, datasets, { format: 'pct', fill: true, beginAtZero: false });
+}
+
+// ═══════════════════════════════════════
+// ── VALUE TAB ──
+// ═══════════════════════════════════════
+function renderValue(f) {
+  const pais = f.pais === 'ALL' ? 'Center Zone' : f.pais;
+
+  // Value by channel - horizontal bar
+  const valRows = DATA_KPIS.filter(r => r.Pais === pais && r.Categoria === f.cat && r.KPI === 'Value USD' && r.Periodo === f.periodo && r.Canal !== 'Total Market');
+  makeHBar('chart-value-channel', valRows.map(r => r.Canal), valRows.map(r => r.Valor ?? 0), {
+    format: 'usd', label: 'Value USD'
+  });
+
+  // Ticket by country - vertical bar
+  const allPaises = uniqueVals(DATA_KPIS.filter(r => r.Pais !== 'Center Zone'), 'Pais');
+  const ticketData = allPaises.map(p => {
+    const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Average Ticket USD' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
+    return r?.Valor ?? 0;
+  });
+  makeVBar('chart-ticket-country', allPaises, [{
+    label: 'Avg Ticket USD',
+    data: ticketData,
+    backgroundColor: allPaises.map((_, i) => COLORS.palette[i % COLORS.palette.length]),
+  }], { format: 'usd' });
+
+  // Ticket by channel - horizontal bar
+  const ticketRows = DATA_KPIS.filter(r => r.Pais === pais && r.Categoria === f.cat && r.KPI === 'Average Ticket USD' && r.Periodo === f.periodo && r.Canal !== 'Total Market');
+  makeHBar('chart-ticket-channel', ticketRows.map(r => r.Canal), ticketRows.map(r => r.Valor ?? 0), {
+    format: 'usd', label: 'Avg Ticket USD'
+  });
+}
+
+// ═══════════════════════════════════════
+// ── INCIDENCE TAB ──
+// ═══════════════════════════════════════
+function renderIncidence(f) {
+  // Evolution - LINE CHART
+  const allPaises = uniqueVals(DATA_INC, 'Pais').filter(p => p !== 'Center Zone');
+  const periodos = ['MAT Q4-23', 'MAT Q4-24', 'MAT Q4-25'];
+  const cat = f.cat === 'FMCG' ? 'NARTD' : f.cat;
+
+  const datasets = allPaises.map((p, i) => ({
+    label: p,
+    data: periodos.map(per => {
+      const r = DATA_INC.find(d => d.Pais === p && d.Categoria === cat && d.Canal === 'Total Channels' && d.Periodo === per);
+      return r?.Valor ?? null;
+    }),
+    borderColor: COLORS.palette[i % COLORS.palette.length],
+  }));
+  makeLine('chart-inc-evolution', periodos, datasets, { format: 'pct', fill: false, beginAtZero: false });
+
+  // By channel type - RADAR CHART
+  const channelTypes = ['Total Channels', 'Modern Trade', 'Traditional Trade'];
+  const incPais = f.pais === 'ALL' ? allPaises.slice(0, 5) : [f.pais === 'Center Zone' ? allPaises[0] : f.pais];
+  const latestPer = 'MAT Q4-25';
+
+  const radarDs = incPais.map((p, i) => ({
+    label: p,
+    data: channelTypes.map(ch => {
+      const r = DATA_INC.find(d => d.Pais === p && d.Categoria === cat && d.Canal === ch && d.Periodo === latestPer);
+      return r?.Valor ?? 0;
+    }),
+    borderColor: COLORS.palette[i % COLORS.palette.length],
+    backgroundColor: COLORS.paletteAlpha[i % COLORS.paletteAlpha.length],
+  }));
+  makeRadar('chart-inc-by-channel', channelTypes, radarDs);
+
+  // Subcategories - DOUGHNUT
+  const subPais = f.pais === 'ALL' ? 'Center Zone' : f.pais;
+  const subcats = ['Colas', 'Sabores', 'RTDJ', 'Water'];
+  const subLatest = 'MAT Q4.25';
+
+  const subData = subcats.map(sc => {
+    const r = DATA_INC_SUB.find(d => d.Pais === subPais && d.Subcategoria === sc && d.Canal === 'T. Channels' && d.Periodo === subLatest);
+    return r?.Valor != null ? (r.Valor > 1 ? r.Valor : r.Valor * 100) : 0;
+  });
+  makeDoughnut('chart-inc-subcat', subcats, subData, {
+    colors: [COLORS.red, COLORS.blue, COLORS.green, COLORS.gold],
+    format: 'pct'
+  });
+}
+
+// ═══════════════════════════════════════
+// ── CHANNELS TAB ──
+// ═══════════════════════════════════════
+function renderChannels(f) {
+  const pais = f.pais === 'ALL' ? 'Center Zone' : f.pais;
+  const mainChannels = ['Modern Trade (Including Wholesalers)', ' Traditional Trade  ', 'Specialized Stores  ', 'Door To Door  ', 'E-commerce  '];
+
+  // Share comparison Q25 vs Q24
+  const q25 = mainChannels.map(ch => {
+    const r = DATA_CH.find(d => d.Pais === pais && d.Categoria === 'FMCG' && d.Canal === ch && d.Periodo === 'MAT Q4.25');
+    return r?.Valor ?? 0;
+  });
+  const q24 = mainChannels.map(ch => {
+    const r = DATA_CH.find(d => d.Pais === pais && d.Categoria === 'FMCG' && d.Canal === ch && d.Periodo === 'MAT Q4.24');
+    return r?.Valor ?? 0;
+  });
+  const chLabels = mainChannels.map(c => c.trim());
+
+  makeVBar('chart-ch-share', chLabels, [
+    { label: 'MAT Q4.25', data: q25, backgroundColor: COLORS.red },
+    { label: 'MAT Q4.24', data: q24, backgroundColor: COLORS.dark },
+  ], { format: 'pct' });
+
+  // Channel mix by country (stacked 100%)
+  const allPaises = uniqueVals(DATA_CH.filter(r => r.Pais !== 'Center Zone' && r.Categoria === 'FMCG' && r.Periodo === 'MAT Q4.25'), 'Pais');
+  const stackChannels = ['Modern Trade (Including Wholesalers)', ' Traditional Trade  ', 'Specialized Stores  ', 'Door To Door  ', 'E-commerce  '];
+  const stackColors = [COLORS.red, COLORS.dark, COLORS.blue, COLORS.green, COLORS.gold];
+
+  const stackDs = stackChannels.map((ch, i) => ({
+    label: ch.trim(),
+    data: allPaises.map(p => {
+      const r = DATA_CH.find(d => d.Pais === p && d.Categoria === 'FMCG' && d.Canal === ch && d.Periodo === 'MAT Q4.25');
+      return r?.Valor ?? 0;
+    }),
+    backgroundColor: stackColors[i],
+  }));
+  makeStacked('chart-ch-mix', allPaises, stackDs);
+}
+
+// ═══════════════════════════════════════
+// ── DATA TABLE ──
+// ═══════════════════════════════════════
+function renderTable() {
+  const f = getFilters();
+  const search = (document.getElementById('table-search').value || '').toLowerCase();
+
+  let rows = filterKpi(DATA_KPIS, f, { canal: null, periodo: null });
+  if (search) {
+    rows = rows.filter(r =>
+      Object.values(r).some(v => v != null && String(v).toLowerCase().includes(search))
+    );
+  }
+
+  const thead = document.querySelector('#main-table thead tr');
+  const tbody = document.querySelector('#main-table tbody');
+  const cols = ['Pais', 'Categoria', 'KPI', 'Canal', 'Periodo', 'Valor', 'Variacion_vs_PY'];
+
+  thead.innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+  tbody.innerHTML = rows.slice(0, 500).map(r => {
+    return '<tr>' + cols.map(c => {
+      let v = r[c];
+      if (c === 'Valor' && v != null) {
+        v = typeof v === 'number' ? formatNum(v) : v;
+      }
+      if (c === 'Variacion_vs_PY' && v != null) {
+        const cls = v > 0 ? 'val-pos' : v < 0 ? 'val-neg' : '';
+        return `<td class="${cls}">${(v * 100).toFixed(1)}%</td>`;
+      }
+      return `<td>${v ?? '-'}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+}
+</script>
+</body>
+</html>
