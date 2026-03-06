@@ -428,6 +428,18 @@ table.data-table tbody tr:hover { background: #EBF3FB; }
   <div class="tab-page active" id="page-overview">
     <div class="kpi-cards" id="kpi-cards-row"></div>
     <div class="charts-grid">
+      <div class="chart-box full-width">
+        <h3>Evolucion KPIs por Pais</h3>
+        <div class="chart-subtitle">Total Market &bull; Tendencia MAT Dec-23 &rarr; Dec-24 &rarr; Dec-25</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button class="evo-btn active" data-kpi="Penetration" onclick="switchEvoKpi(this)">Penetration</button>
+          <button class="evo-btn" data-kpi="Frequency" onclick="switchEvoKpi(this)">Frequency</button>
+          <button class="evo-btn" data-kpi="Value USD" onclick="switchEvoKpi(this)">Value USD</button>
+          <button class="evo-btn" data-kpi="Average Ticket USD" onclick="switchEvoKpi(this)">Avg Ticket</button>
+          <button class="evo-btn" data-kpi="Incidence" onclick="switchEvoKpi(this)">Incidence</button>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chart-evo-overview"></canvas></div>
+      </div>
       <div class="chart-box">
         <h3>Penetration por Pais</h3>
         <div class="chart-subtitle">Total Market &bull; Periodo seleccionado</div>
@@ -447,18 +459,6 @@ table.data-table tbody tr:hover { background: #EBF3FB; }
         <h3>Value USD por Pais</h3>
         <div class="chart-subtitle">Total Market &bull; Periodo seleccionado</div>
         <div class="chart-wrap"><canvas id="chart-val-overview"></canvas></div>
-      </div>
-      <div class="chart-box full-width">
-        <h3>Evolucion KPIs por Pais</h3>
-        <div class="chart-subtitle">Total Market &bull; Tendencia MAT Dec-23 &rarr; Dec-24 &rarr; Dec-25</div>
-        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-          <button class="evo-btn active" data-kpi="Penetration" onclick="switchEvoKpi(this)">Penetration</button>
-          <button class="evo-btn" data-kpi="Frequency" onclick="switchEvoKpi(this)">Frequency</button>
-          <button class="evo-btn" data-kpi="Value USD" onclick="switchEvoKpi(this)">Value USD</button>
-          <button class="evo-btn" data-kpi="Average Ticket USD" onclick="switchEvoKpi(this)">Avg Ticket</button>
-          <button class="evo-btn" data-kpi="Incidence" onclick="switchEvoKpi(this)">Incidence</button>
-        </div>
-        <div class="chart-wrap tall"><canvas id="chart-evo-overview"></canvas></div>
       </div>
     </div>
   </div>
