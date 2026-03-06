@@ -441,23 +441,23 @@ table.data-table tbody tr:hover { background: #EBF3FB; }
         <div class="chart-wrap tall"><canvas id="chart-evo-overview"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Penetration por Pais</h3>
-        <div class="chart-subtitle">Total Market &bull; Periodo seleccionado</div>
+        <h3>Penetration &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">Total Market &bull; % cambio vs periodo anterior</div>
         <div class="chart-wrap"><canvas id="chart-pen-overview"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Frequency por Pais</h3>
-        <div class="chart-subtitle">Total Market &bull; Periodo seleccionado</div>
+        <h3>Frequency &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">Total Market &bull; % cambio vs periodo anterior</div>
         <div class="chart-wrap"><canvas id="chart-freq-overview"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Incidence vs FMCG por Pais</h3>
-        <div class="chart-subtitle">Total Market</div>
+        <h3>Incidence &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">Total Market &bull; % cambio vs periodo anterior</div>
         <div class="chart-wrap"><canvas id="chart-inc-overview"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Value USD por Pais</h3>
-        <div class="chart-subtitle">Total Market &bull; Periodo seleccionado</div>
+        <h3>Value USD &mdash; Variación vs PY</h3>
+        <div class="chart-subtitle">Total Market &bull; % cambio vs periodo anterior</div>
         <div class="chart-wrap"><canvas id="chart-val-overview"></canvas></div>
       </div>
     </div>
@@ -709,38 +709,22 @@ function makeHBar(id, labels, values, opts = {}) {
   const ctx = document.getElementById(id);
   if (!ctx) return;
 
-  const combined = labels.map((l, i) => ({ label: l, value: values[i] ?? 0, change: opts.changes ? opts.changes[i] : null }));
+  const actualVals = opts.actualValues || [];
+  const combined = labels.map((l, i) => ({ label: l, value: values[i] ?? 0, actual: actualVals[i] ?? null }));
   if (opts.sort !== false) combined.sort((a, b) => b.value - a.value);
 
   const sortedLabels = combined.map(c => c.label);
   const sortedValues = combined.map(c => c.value);
-  const sortedChanges = combined.map(c => c.change);
-  const colors = opts.color
-    ? (typeof opts.color === 'string' ? opts.color : opts.color)
-    : sortedLabels.map((_, i) => COLORS.palette[i % COLORS.palette.length]);
+  const sortedActuals = combined.map(c => c.actual);
 
-  const variationPlugin = {
-    id: 'hbarVariation',
-    afterDatasetsDraw(chart) {
-      if (!sortedChanges.some(c => c != null)) return;
-      const { ctx: c2 } = chart;
-      const meta = chart.getDatasetMeta(0);
-      meta.data.forEach((bar, i) => {
-        const ch = sortedChanges[i];
-        if (ch == null) return;
-        const arrow = ch >= 0 ? '▲' : '▼';
-        const color = ch >= 0 ? '#70AD47' : '#C00000';
-        const txt = `${arrow} ${Math.abs(ch).toFixed(1)}%`;
-        c2.save();
-        c2.font = 'bold 10px sans-serif';
-        c2.fillStyle = color;
-        c2.textAlign = 'left';
-        c2.textBaseline = 'middle';
-        c2.fillText(txt, bar.x + 6, bar.y);
-        c2.restore();
-      });
-    }
-  };
+  let colors;
+  if (opts.isVariation) {
+    colors = sortedValues.map(v => v >= 0 ? '#70AD47' : '#C00000');
+  } else {
+    colors = opts.color
+      ? (typeof opts.color === 'string' ? opts.color : opts.color)
+      : sortedLabels.map((_, i) => COLORS.palette[i % COLORS.palette.length]);
+  }
 
   CHARTS[id] = new Chart(ctx, {
     type: 'bar',
@@ -760,20 +744,27 @@ function makeHBar(id, labels, values, opts = {}) {
       maintainAspectRatio: false,
       categoryPercentage: 0.75,
       barPercentage: 0.8,
-      layout: { padding: { right: sortedChanges.some(c => c != null) ? 70 : 0 } },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: c => {
-          let v = c.parsed.x;
-          if (opts.format === 'pct') return v.toFixed(1) + '%';
-          if (opts.format === 'usd') return '$' + formatNum(v);
-          return formatNum(v);
+          const idx = c.dataIndex;
+          const variation = sortedValues[idx];
+          const arrow = variation >= 0 ? '▲' : '▼';
+          let tip = `${arrow} ${Math.abs(variation).toFixed(1)}% vs PY`;
+          if (opts.isVariation && sortedActuals[idx] != null) {
+            const av = sortedActuals[idx];
+            let valStr;
+            if (opts.actualFormat === 'usd') valStr = '$' + formatNum(av);
+            else if (opts.actualFormat === 'pct') valStr = av.toFixed(1) + '%';
+            else valStr = av.toFixed(2);
+            tip += `  |  Valor: ${valStr}`;
+          }
+          return tip;
         }}}
       },
       scales: {
         x: {
-          beginAtZero: true,
-          ticks: { font: { size: 10 }, callback: v => opts.format === 'usd' ? '$' + formatCompact(v) : opts.format === 'pct' ? v + '%' : v },
+          ticks: { font: { size: 10 }, callback: v => v.toFixed(1) + '%' },
           grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false }
         },
         y: {
@@ -781,8 +772,7 @@ function makeHBar(id, labels, values, opts = {}) {
           grid: { display: false }
         }
       }
-    },
-    plugins: [variationPlugin]
+    }
   });
 }
 
@@ -1095,52 +1085,42 @@ function renderOverview(f) {
   const allPaises = uniqueVals(DATA_KPIS.filter(r => r.Pais !== 'Center Zone'), 'Pais');
   const paises = f.pais === 'ALL' ? allPaises : [f.pais];
 
-  // Helper to get vs PY changes for a KPI
+  // Helper: get current value and vs PY change for each country
   const prevPeriodo = f.periodo === 'MAT Dec-25' ? 'MAT Dec-24' : 'MAT Dec-23';
-  function getChanges(kpi) {
+  function getKpiData(kpi) {
     return paises.map(p => {
       const curr = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === kpi && d.Canal === 'Total Market' && d.Periodo === f.periodo);
       const prev = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === kpi && d.Canal === 'Total Market' && d.Periodo === prevPeriodo);
-      const v = curr?.Valor, pv = prev?.Valor;
-      return (v != null && pv != null && pv !== 0) ? ((v - pv) / Math.abs(pv)) * 100 : null;
+      const v = curr?.Valor ?? null, pv = prev?.Valor ?? null;
+      const change = (v != null && pv != null && pv !== 0) ? ((v - pv) / Math.abs(pv)) * 100 : 0;
+      return { value: v, change };
     });
   }
 
-  // Penetration by country - horizontal bar
-  const penData = paises.map(p => {
-    const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Penetration' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
-    return r?.Valor ?? 0;
+  // Bars = variation vs PY, tooltip = actual value
+  const penKpi = getKpiData('Penetration');
+  makeHBar('chart-pen-overview', paises, penKpi.map(d => d.change), {
+    format: 'pct', label: 'Penetration', isVariation: true,
+    actualValues: penKpi.map(d => d.value), actualFormat: 'pct'
   });
-  makeHBar('chart-pen-overview', paises, penData, { format: 'pct', label: 'Penetration %', changes: getChanges('Penetration') });
 
-  // Frequency by country - horizontal bar
-  const freqData = paises.map(p => {
-    const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Frequency' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
-    return r?.Valor ?? 0;
+  const freqKpi = getKpiData('Frequency');
+  makeHBar('chart-freq-overview', paises, freqKpi.map(d => d.change), {
+    format: 'pct', label: 'Frequency', isVariation: true,
+    actualValues: freqKpi.map(d => d.value), actualFormat: 'num'
   });
-  makeHBar('chart-freq-overview', paises, freqData, { label: 'Frequency', changes: getChanges('Frequency') });
 
-  // Incidence by country - horizontal bar
-  const incData = paises.map(p => {
-    const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Incidence' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
-    return r?.Valor ?? 0;
+  const incKpi = getKpiData('Incidence');
+  makeHBar('chart-inc-overview', paises, incKpi.map(d => d.change), {
+    format: 'pct', label: 'Incidence', isVariation: true,
+    actualValues: incKpi.map(d => d.value), actualFormat: 'pct'
   });
-  makeHBar('chart-inc-overview', paises, incData, { format: 'pct', label: 'Incidence %', color: COLORS.red, changes: getChanges('Incidence') });
 
-  // Value USD by country - vertical bar
-  const valData = paises.map(p => {
-    const r = DATA_KPIS.find(d => d.Pais === p && d.Categoria === f.cat && d.KPI === 'Value USD' && d.Canal === 'Total Market' && d.Periodo === f.periodo);
-    return r?.Valor ?? 0;
+  const valKpi = getKpiData('Value USD');
+  makeHBar('chart-val-overview', paises, valKpi.map(d => d.change), {
+    format: 'pct', label: 'Value USD', isVariation: true,
+    actualValues: valKpi.map(d => d.value), actualFormat: 'usd'
   });
-  const valChanges = getChanges('Value USD');
-  // Sort Value USD descending
-  const valCombined = paises.map((p, i) => ({ label: p, value: valData[i], change: valChanges[i], color: COLORS.palette[i % COLORS.palette.length] }));
-  valCombined.sort((a, b) => b.value - a.value);
-  makeVBar('chart-val-overview', valCombined.map(c => c.label), [{
-    label: 'Value USD',
-    data: valCombined.map(c => c.value),
-    backgroundColor: valCombined.map(c => c.color),
-  }], { format: 'usd', changes: valCombined.map(c => c.change) });
 
   // Evolution line chart (default: Penetration)
   renderEvoOverview(f, 'Penetration');
